@@ -14,10 +14,6 @@ export function SettingsScreen() {
   const [pendingOps, setPendingOps] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
-  // useFocusEffect re-runs every time this tab becomes visible (e.g. after
-  // adjusting a count on another screen), so the pending-sync count here
-  // stays accurate. React Navigation's docs ask for the callback to be
-  // wrapped in useCallback so it doesn't re-run on every render.
   useFocusEffect(
     useCallback(() => {
       getQueueLength().then(setPendingOps);

@@ -14,15 +14,6 @@ async function isConnected(): Promise<boolean> {
   return Boolean(state.isConnected && state.isInternetReachable !== false);
 }
 
-/**
- * Every mutation below (create, update, delete) follows the same three steps:
- *   1. Save the change to the local AsyncStorage cache right away, so the
- *      UI has something to show even if the network call never happens.
- *   2. If we're online, try Supabase directly.
- *   3. If we're offline, or the Supabase call fails, add the change to the
- *      sync queue (src/offline/syncQueue.ts) so it gets retried automatically
- *      the next time the app is back online.
- */
 
 export function useItemsQuery() {
   const { user } = useAuth();
@@ -45,7 +36,7 @@ export function useItemsQuery() {
         .order('name', { ascending: true });
 
       if (error) {
-        // Network hiccup even though NetInfo said we're online — fall back to cache.
+      
         return getCachedItems(userId);
       }
 

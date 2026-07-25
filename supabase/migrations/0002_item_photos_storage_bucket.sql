@@ -1,4 +1,3 @@
--- Storage bucket for item photos
 insert into storage.buckets (id, name, public)
 values ('item-photos', 'item-photos', true)
 on conflict (id) do nothing;

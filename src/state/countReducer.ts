@@ -1,9 +1,3 @@
-/**
- * Pure, framework-free logic for the item counting UI (used with useReducer
- * in ItemDetailScreen). Kept isolated so it can be unit-tested without
- * mounting any React Native components.
- */
-
 export type CountAction =
   | { type: 'increment' }
   | { type: 'decrement' }

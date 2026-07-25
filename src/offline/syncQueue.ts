@@ -5,19 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import type { NewItem, ItemUpdate } from '../types/database';
 
-/**
- * This file is the whole "offline" part of the offline-first design in one
- * place: a list of "things I still need to tell Supabase about", saved to
- * AsyncStorage so it survives the app closing.
- *
- * How it's used:
- * 1. When a screen tries to save something while there's no internet, it
- *    calls enqueueOperation() to add one entry to this list.
- * 2. When the app detects it's back online (see useNetworkStatus.ts), it
- *    calls flushQueue(), which sends every pending entry to Supabase, one
- *    at a time, oldest first.
- */
-
 const QUEUE_KEY = 'stockcount:sync-queue';
 
 export type SyncOperation =
@@ -50,7 +37,17 @@ async function setQueue(queue: SyncOperation[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-export async function enqueueOperation(op: Omit<SyncOperation, 'id' | 'createdAt'>): Promise<SyncOperation> {
+// Plain `Omit<SyncOperation, 'id' | 'createdAt'>` doesn't work well here:
+// SyncOperation is a union of 4 different shapes, and TypeScript's `Omit`
+// only keeps the fields every shape has in common, so it would forget that
+// e.g. 'adjust_count' has an `itemId` field. This version applies Omit to
+// each shape in the union separately (that's what `T extends any ? ... :
+// never` does), so every variant keeps its own specific fields.
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+
+export async function enqueueOperation(
+  op: DistributiveOmit<SyncOperation, 'id' | 'createdAt'>
+): Promise<SyncOperation> {
   const queue = await getQueue();
   const full = { ...op, id: uuidv4(), createdAt: new Date().toISOString() } as SyncOperation;
   await setQueue([...queue, full]);
@@ -61,12 +58,6 @@ export async function getQueueLength(): Promise<number> {
   return (await getQueue()).length;
 }
 
-/**
- * Processes queued operations against Supabase in order (oldest first).
- * A failed operation (still offline, or a real server error) is kept in the
- * queue for the next flush attempt; everything before it that succeeded is
- * removed. Returns how many operations were successfully synced.
- */
 export async function flushQueue(): Promise<{ synced: number; remaining: number }> {
   const queue = await getQueue();
   if (queue.length === 0) return { synced: 0, remaining: 0 };
@@ -91,9 +82,7 @@ export async function flushQueue(): Promise<{ synced: number; remaining: number 
 async function applyOperation(op: SyncOperation): Promise<void> {
   switch (op.type) {
     case 'create_item': {
-      // op.payload has an extra clientItemId field we used locally to show
-      // the item before it had a real id — Supabase doesn't need that field,
-      // so we build a clean object with just the columns the table has.
+ 
       const payload = {
         name: op.payload.name,
         sku: op.payload.sku,

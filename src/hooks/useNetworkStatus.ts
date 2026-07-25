@@ -17,11 +17,6 @@ export function useNetworkStatus() {
   return { isOnline };
 }
 
-/**
- * Watches connectivity; the moment we go from offline -> online it flushes
- * the pending operation queue against Supabase and invalidates the `items`
- * query so every screen reconciles with the server's version of the data.
- */
 export function useSyncOnReconnect(queryClient: QueryClient) {
   const wasOffline = useRef(false);
 

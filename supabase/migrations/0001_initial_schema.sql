@@ -1,7 +1,5 @@
--- Enable required extensions
 create extension if not exists "pgcrypto" with schema extensions;
 
--- ITEMS
 create table public.items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -37,10 +35,6 @@ create index item_counts_item_id_idx on public.item_counts(item_id);
 create index item_counts_user_id_idx on public.item_counts(user_id);
 create unique index item_counts_client_op_id_unique on public.item_counts(client_op_id) where client_op_id is not null;
 
--- Note: updated_at is set by the app on every update call (see src/hooks/useItems.ts),
--- not by a database trigger, so it's easy to see in one place how it gets set.
-
--- RLS
 alter table public.items enable row level security;
 alter table public.item_counts enable row level security;
 

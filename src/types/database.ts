@@ -1,8 +1,3 @@
-/**
- * Types that mirror the Supabase `public.items` and `public.item_counts` tables.
- * Keep these in sync with the SQL migrations in /supabase.
- */
-
 export interface Item {
   id: string;
   user_id: string;

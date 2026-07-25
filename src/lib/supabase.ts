@@ -21,8 +21,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Supabase recommends pausing the auto token-refresh timer while the app is
-// backgrounded so it doesn't keep firing when the user isn't looking at the app.
 AppState.addEventListener('change', (state) => {
   if (state === 'active') {
     supabase.auth.startAutoRefresh();
