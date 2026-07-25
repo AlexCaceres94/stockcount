@@ -5,6 +5,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import type { NewItem, ItemUpdate } from '../types/database';
 
+/**
+ * This file is the whole "offline" part of the offline-first design in one
+ * place: a list of "things I still need to tell Supabase about", saved to
+ * AsyncStorage so it survives the app closing.
+ *
+ * How it's used:
+ * 1. When a screen tries to save something while there's no internet, it
+ *    calls enqueueOperation() to add one entry to this list.
+ * 2. When the app detects it's back online (see useNetworkStatus.ts), it
+ *    calls flushQueue(), which sends every pending entry to Supabase, one
+ *    at a time, oldest first.
+ */
+
 const QUEUE_KEY = 'stockcount:sync-queue';
 
 export type SyncOperation =
@@ -78,8 +91,20 @@ export async function flushQueue(): Promise<{ synced: number; remaining: number 
 async function applyOperation(op: SyncOperation): Promise<void> {
   switch (op.type) {
     case 'create_item': {
-      const { clientItemId: _clientItemId, ...payload } = op.payload;
-      const { error } = await supabase.from('items').insert({ ...payload, user_id: op.userId });
+      // op.payload has an extra clientItemId field we used locally to show
+      // the item before it had a real id — Supabase doesn't need that field,
+      // so we build a clean object with just the columns the table has.
+      const payload = {
+        name: op.payload.name,
+        sku: op.payload.sku,
+        category: op.payload.category,
+        barcode: op.payload.barcode,
+        min_stock: op.payload.min_stock,
+        quantity: op.payload.quantity,
+        photo_url: op.payload.photo_url,
+        user_id: op.userId,
+      };
+      const { error } = await supabase.from('items').insert(payload);
       if (error) throw error;
       return;
     }

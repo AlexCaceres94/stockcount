@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 
 import { supabase } from '../lib/supabase';
@@ -14,49 +14,57 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * Wraps the whole app and keeps track of whether someone is logged in.
+ * RootNavigator.tsx reads `session` from here to decide whether to show the
+ * login screens or the main app.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-
+    // Check once, right away, if there's already a logged-in session saved
+    // on the device (Supabase stores it in AsyncStorage — see lib/supabase.ts).
     supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
       setSession(data.session);
       setLoading(false);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    // Then keep listening: this fires every time the user logs in, logs out,
+    // or their session token gets refreshed in the background.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setLoading(false);
     });
 
     return () => {
-      isMounted = false;
-      subscription.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, []);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      session,
-      user: session?.user ?? null,
-      loading,
-      signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return { error: error?.message ?? null };
-      },
-      signUp: async (email, password) => {
-        const { error } = await supabase.auth.signUp({ email, password });
-        return { error: error?.message ?? null };
-      },
-      signOut: async () => {
-        await supabase.auth.signOut();
-      },
-    }),
-    [session, loading]
-  );
+  async function signIn(email: string, password: string) {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message ?? null };
+  }
+
+  async function signUp(email: string, password: string) {
+    const { error } = await supabase.auth.signUp({ email, password });
+    return { error: error?.message ?? null };
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
+
+  const value: AuthContextValue = {
+    session,
+    user: session?.user ?? null,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

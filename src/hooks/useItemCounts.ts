@@ -13,6 +13,9 @@ async function isConnected(): Promise<boolean> {
   return Boolean(state.isConnected && state.isInternetReachable !== false);
 }
 
+// GPS is optional: if the user hasn't granted location permission, or the
+// fix fails for any reason, we just save null coordinates instead of
+// blocking the count. Counting inventory should never fail because of GPS.
 async function tryGetLocation(): Promise<{ latitude: number | null; longitude: number | null }> {
   try {
     const { status } = await Location.getForegroundPermissionsAsync();
@@ -26,9 +29,14 @@ async function tryGetLocation(): Promise<{ latitude: number | null; longitude: n
 }
 
 /**
- * Applies a +1 / -1 / arbitrary delta to an item's quantity, records the
- * change in item_counts with a GPS tag, and works fully offline (the change
- * lands in the local cache immediately and a sync operation is queued).
+ * Adds `delta` (+1 or -1) to an item's quantity, and logs the change in
+ * item_counts with a GPS tag.
+ *
+ * The screen that calls this (ItemDetailScreen) already updates the big
+ * number on screen instantly through its own useReducer, so this function
+ * doesn't need to do any "optimistic UI" trick itself — it just needs to
+ * get the new quantity saved (online, in Supabase; offline, in the queue)
+ * and then tell React Query to refetch so every screen agrees on the number.
  */
 export function useAdjustCount() {
   const { user } = useAuth();
@@ -40,10 +48,14 @@ export function useAdjustCount() {
       const quantityAfter = Math.max(0, item.quantity + delta);
       const { latitude, longitude } = await tryGetLocation();
 
+      // Always save the new quantity in the local cache first, so the
+      // inventory list still shows the right number even if the app closes
+      // before the network call below finishes.
       const updatedItem: Item = { ...item, quantity: quantityAfter, updated_at: new Date().toISOString() };
       await upsertCachedItem(userId, updatedItem);
 
       const online = await isConnected();
+
       if (!online) {
         await enqueueOperation({
           type: 'adjust_count',
@@ -57,9 +69,11 @@ export function useAdjustCount() {
         return updatedItem;
       }
 
+      // Online: write straight to Supabase — update the item's quantity and
+      // add one row to the history table.
       const { error: itemError } = await supabase
         .from('items')
-        .update({ quantity: quantityAfter })
+        .update({ quantity: quantityAfter, updated_at: updatedItem.updated_at })
         .eq('id', item.id)
         .eq('user_id', userId);
 
@@ -72,6 +86,9 @@ export function useAdjustCount() {
         longitude,
       });
 
+      // If Supabase call failed even though NetInfo said we're online (a
+      // flaky connection, a dropped request, etc.), fall back to the same
+      // queue offline mode uses so the change isn't lost.
       if (itemError || historyError) {
         await enqueueOperation({
           type: 'adjust_count',
@@ -86,22 +103,7 @@ export function useAdjustCount() {
 
       return updatedItem;
     },
-    onMutate: async ({ item, delta }) => {
-      await queryClient.cancelQueries({ queryKey: ['items', userId] });
-      const previous = queryClient.getQueryData<Item[]>(['items', userId]);
-
-      queryClient.setQueryData<Item[]>(['items', userId], (old) =>
-        (old ?? []).map((i) => (i.id === item.id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i))
-      );
-
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['items', userId], context.previous);
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items', userId] });
     },
   });
@@ -131,8 +133,8 @@ export function useItemHistoryQuery(itemId: string | undefined) {
   });
 }
 
-// Re-exported for screens that want a synchronous read of the current cache
-// (e.g. to render something instantly before the query resolves).
+// Lets a screen read the current cached items synchronously (e.g. to show
+// something instantly before the query above resolves).
 export async function getInitialItems(userId: string) {
   return getCachedItems(userId);
 }

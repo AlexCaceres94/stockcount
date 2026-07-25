@@ -37,20 +37,8 @@ create index item_counts_item_id_idx on public.item_counts(item_id);
 create index item_counts_user_id_idx on public.item_counts(user_id);
 create unique index item_counts_client_op_id_unique on public.item_counts(client_op_id) where client_op_id is not null;
 
--- updated_at trigger
-create or replace function public.set_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
-create trigger items_set_updated_at
-before update on public.items
-for each row execute function public.set_updated_at();
+-- Note: updated_at is set by the app on every update call (see src/hooks/useItems.ts),
+-- not by a database trigger, so it's easy to see in one place how it gets set.
 
 -- RLS
 alter table public.items enable row level security;

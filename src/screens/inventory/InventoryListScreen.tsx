@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,19 +19,23 @@ export function InventoryListScreen() {
   const { data: items, isLoading, isError, refetch, isRefetching } = useItemsQuery();
   const [search, setSearch] = useState('');
 
-  const filtered = useMemo(() => {
-    if (!items) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (i) => i.name.toLowerCase().includes(q) || i.sku?.toLowerCase().includes(q) || i.barcode?.includes(q)
-    );
-  }, [items, search]);
+  // Plain filter, recalculated on every render — the list is small enough
+  // (a shop or warehouse inventory, not millions of rows) that this doesn't
+  // need any special optimization.
+  const query = search.trim().toLowerCase();
+  const filtered = !items
+    ? []
+    : items.filter(
+        (i) =>
+          !query ||
+          i.name.toLowerCase().includes(query) ||
+          i.sku?.toLowerCase().includes(query) ||
+          i.barcode?.includes(query)
+      );
 
-  const handleOpenItem = useCallback(
-    (item: Item) => navigation.navigate('ItemDetail', { itemId: item.id }),
-    [navigation]
-  );
+  function handleOpenItem(item: Item) {
+    navigation.navigate('ItemDetail', { itemId: item.id });
+  }
 
   if (isLoading) return <LoadingView />;
   if (isError) return <ErrorView message="Couldn't load your inventory." onRetry={() => refetch()} />;
