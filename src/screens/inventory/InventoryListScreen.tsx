@@ -19,9 +19,6 @@ export function InventoryListScreen() {
   const { data: items, isLoading, isError, refetch, isRefetching } = useItemsQuery();
   const [search, setSearch] = useState('');
 
-  // Plain filter, recalculated on every render — the list is small enough
-  // (a shop or warehouse inventory, not millions of rows) that this doesn't
-  // need any special optimization.
   const query = search.trim().toLowerCase();
   const filtered = !items
     ? []
