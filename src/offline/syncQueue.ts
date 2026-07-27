@@ -37,12 +37,7 @@ async function setQueue(queue: SyncOperation[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-// Plain `Omit<SyncOperation, 'id' | 'createdAt'>` doesn't work well here:
-// SyncOperation is a union of 4 different shapes, and TypeScript's `Omit`
-// only keeps the fields every shape has in common, so it would forget that
-// e.g. 'adjust_count' has an `itemId` field. This version applies Omit to
-// each shape in the union separately (that's what `T extends any ? ... :
-// never` does), so every variant keeps its own specific fields.
+
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
 export async function enqueueOperation(
