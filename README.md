@@ -11,7 +11,7 @@ Final Practical Project — BIT4.6A Advanced Mobile Development (SS 26).
 
 | Layer | Choice |
 |---|---|
-| App framework | Expo (SDK 57) + React Native 0.86 + TypeScript (strict mode) |
+| App framework | Expo (SDK 54) + React Native 0.81 + TypeScript (strict mode) |
 | Navigation | React Navigation v7 — native-stack + bottom-tabs |
 | State management | React hooks: `useState`, `useReducer`, `useContext` |
 | Data fetching / cache | TanStack Query v5 |
