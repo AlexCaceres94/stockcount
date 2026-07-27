@@ -26,14 +26,11 @@ export function ItemDetailScreen() {
 
   const item = items?.find((i) => i.id === params.itemId);
 
-  // useReducer drives the big +/- display; the source of truth (Supabase +
-  // offline queue) is updated through useAdjustCount, and this local
-  // reducer is re-synced whenever the server/cache value changes.
   const [displayQuantity, dispatch] = useReducer(countReducer, item?.quantity ?? 0);
 
   useEffect(() => {
     if (item) dispatch({ type: 'set', quantity: item.quantity });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [item?.quantity]);
 
   if (!item) return <LoadingView />;
